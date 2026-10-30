@@ -54,6 +54,8 @@ async function start() {
     running = true;
     booted = true;
     boot.hidden = true;
+    // ask the browser not to evict the saved game when it cleans up storage
+    navigator.storage?.persist?.().catch(() => {});
     taskbar.hidden = false;
 
     const shutdown = await WinMain();

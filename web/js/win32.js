@@ -82,6 +82,7 @@ export const MF_GRAYED = 0x0001;
 export const MF_DISABLED = 0x0002;
 export const MF_CHECKED = 0x0008;
 export const MF_POPUP = 0x0010;
+export const MF_BYPOSITION = 0x0400;
 export const MF_SEPARATOR = 0x0800;
 export const MF_HELP = 0x4000;
 
@@ -635,6 +636,83 @@ export function AppendMenu(menu, flags, id, text) {
 
 export function DrawMenuBar(hWnd) {
     if (hWnd.menuBar) renderMenuBar(hWnd);
+}
+
+export function CreatePopupMenu() {
+    return [];
+}
+
+export function InsertMenu(menu, position, flags, idOrPopup, text) {
+    const item = flags & MF_POPUP
+        ? { flags: flags & ~MF_BYPOSITION, text, items: idOrPopup }
+        : { flags: flags & ~MF_BYPOSITION, id: idOrPopup, text };
+    menu.splice(Math.min(position, menu.length), 0, item);
+}
+
+// ---------------------------------------------------------------------------------------
+// Common dialogs: Apri / Salva con nome
+//
+// The browser's file pickers where there are (Chrome, Edge), otherwise a file input to open
+// and a download to save.
+
+function pickerTypes(filter, description) {
+    return [{ description, accept: { 'application/octet-stream': [filter] } }];
+}
+
+// Resolves to { name, bytes }, or null when the user cancels.
+export async function GetOpenFileName({ filter, description }) {
+    if (window.showOpenFilePicker) {
+        try {
+            const [handle] = await window.showOpenFilePicker({ types: pickerTypes(filter, description) });
+            const file = await handle.getFile();
+            return { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) };
+        } catch (err) {
+            if (err.name === 'AbortError') return null;
+        }
+    }
+    return new Promise((resolve) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = filter;
+        input.addEventListener('change', async () => {
+            const file = input.files[0];
+            resolve(file ? { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) } : null);
+        });
+        input.addEventListener('cancel', () => resolve(null));
+        input.click();
+    });
+}
+
+// Resolves to { name, write(bytes) }, or null when the user cancels.
+export async function GetSaveFileName({ suggestedName, filter, description }) {
+    if (window.showSaveFilePicker) {
+        try {
+            const handle = await window.showSaveFilePicker({ suggestedName, types: pickerTypes(filter, description) });
+            return {
+                name: handle.name,
+                async write(bytes) {
+                    const out = await handle.createWritable();
+                    await out.write(bytes);
+                    await out.close();
+                },
+            };
+        } catch (err) {
+            if (err.name === 'AbortError') return null;
+        }
+    }
+    return {
+        name: suggestedName,
+        async write(bytes) {
+            const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = suggestedName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+        },
+    };
 }
 
 // ---------------------------------------------------------------------------------------

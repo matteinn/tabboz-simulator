@@ -5,9 +5,10 @@
 // GNU General Public License v3 or later.
 
 import {
-    AppendMenu, DeleteMenu, DialogBox, DrawMenuBar, EnableWindow, EndDialog, GetDlgItem, GetMenu,
-    GetSubMenu, GetSystemMenu, IDCANCEL, IDOK, IDYES, IsIconic, KillTimer, LoadString, MB_ICONHAND,
-    MB_ICONINFORMATION, MB_ICONQUESTION, MB_ICONSTOP, MB_OK, MB_YESNO,
+    AppendMenu, CreatePopupMenu, DeleteMenu, DialogBox, DrawMenuBar, EnableWindow, EndDialog, GetDlgItem,
+    GetMenu, GetOpenFileName, GetSaveFileName, GetSubMenu, GetSystemMenu, IDCANCEL, IDOK, IDYES, InsertMenu,
+    InvalidateRect, IsIconic, KillTimer, LoadString, MB_ICONHAND, MB_ICONINFORMATION, MB_ICONQUESTION,
+    MB_ICONSTOP, MB_OK, MB_YESNO, MF_BYPOSITION, MF_POPUP,
     MessageBox, MF_BYCOMMAND, MF_SEPARATOR, MF_STRING, PBM_SETPOS, SC_CLOSE, SendMessage, SetDlgItemText,
     SetFocus, SetTimer, ShowWindow, SW_HIDE, SW_SHOWNORMAL, TRUE, FALSE, WM_COMMAND, WM_INITDIALOG,
     WM_SYSCOMMAND, WM_TIMER, BM_SETCHECK, CB_ADDSTRING, CB_SETCURSEL, GetDlgItemText, LOWORD, hInst,
@@ -15,12 +16,15 @@ import {
 import {
     ABOUT, ATTESAMAX, BAUHOUSE, BUILD_DATE, CONFIGURATION, COMPAGNIA, CELLULAR, CELLULRABBONAM, DISCO,
     FAMIGLIA, FORMAT, LAVORO, LOGO, MAIN, PALESTRA, PERSONALINFO, QX_ABOUT, QX_CELLULAR, QX_CLOSE,
-    QX_COMPAGNIA, QX_CONFIG, QX_DISCO, QX_FAMIGLIA, QX_INFO, QX_LAVORO, QX_LOGO, QX_NOME, QX_PALESTRA,
-    QX_SCOOTER, QX_SCUOLA, QX_SOLDI, QX_TABACCHI, QX_TIPA, QX_VESTITI, QX_VESTITI1, QX_VESTITI2,
+    QX_COMPAGNIA, QX_CONFIG, QX_DISCO, QX_FAMIGLIA, QX_INFO, QX_LAVORO, QX_LOAD, QX_LOGO, QX_NOME, QX_PALESTRA,
+    QX_SAVE, QX_SCOOTER, QX_SCUOLA, QX_SOLDI, QX_TABACCHI, QX_TIPA, QX_VESTITI, QX_VESTITI1, QX_VESTITI2,
     QX_VESTITI3, QX_VESTITI4, QX_VESTITI5, SCOOTER, SCUOLA, SPEGNIMI, T, TABACCAIO, TIPA, VERSION,
     VESTITI, atoi, atol, random,
 } from '../state.js';
-import { RRKey, SpegniISuoni, TabbozAddKey, TabbozPlaySound, TabbozReadKey } from './readkey.js';
+import {
+    CodificaAnsi, DecodificaAnsi, LeggiProfilo, RRKey, ScriviProfilo, SpegniISuoni, TabbozAddKey,
+    TabbozPlaySound, TabbozReadKey, UsaProfilo,
+} from './readkey.js';
 import { Giorno, InfoMese, InfoSettimana } from './tempo.js';
 import { Evento } from './eventi.js';
 import { CalcolaStudio, MaterieMem, Scuola } from './scuola.js';
@@ -1021,12 +1025,12 @@ export function AggiornaPrincipale(parent) {
     DeleteMenu(menu, QX_TIPA, MF_BYCOMMAND);
     if (T.sesso === 'M') {
         // Non usare la variabile "ao" xche' qui e' necessario
-        AppendMenu(GetSubMenu(menu, 0), MF_STRING, QX_TIPA, '&Tipa...');
+        AppendMenu(GetSubMenu(menu, 1), MF_STRING, QX_TIPA, '&Tipa...');
         SetDlgItemText(parent, 133, 'Tipa'); // che ci sia scritto Tipa x il maschietto e
         SetDlgItemText(parent, 170, 'Rapporto con la tipa');
     } else {
         //  Tipo x la femminuccia...
-        AppendMenu(GetSubMenu(menu, 0), MF_STRING, QX_TIPA, '&Tipo...');
+        AppendMenu(GetSubMenu(menu, 1), MF_STRING, QX_TIPA, '&Tipo...');
         SetDlgItemText(parent, 133, 'Tipo');
         SetDlgItemText(parent, 170, 'Rapporto con il tipo');
     }
@@ -1063,6 +1067,16 @@ export async function TabbozWndProc(hWnd, message, wParam) {
 
         case WM_INITDIALOG:
             T.hWndMain = hWnd;
+
+            // Il menu' File (Apri, Salva con nome, Chiudi) e' arrivato con la 0.92; le risorse
+            // della 0.9beta non ce l'hanno, quindi lo aggiungiamo qui.
+            const file = CreatePopupMenu();
+            AppendMenu(file, MF_STRING, QX_LOAD, '&Apri...');
+            AppendMenu(file, MF_STRING, QX_SAVE, '&Salva con nome...');
+            AppendMenu(file, MF_SEPARATOR, 0, null);
+            AppendMenu(file, MF_STRING, QX_CLOSE, '&Chiudi...');
+            InsertMenu(GetMenu(hWnd), 0, MF_BYPOSITION | MF_POPUP, file, '&File');
+
             // Scrive quanti soldi ci sono... ( ed ora scrive anche molta altra roba...)
             AggiornaPrincipale(hWnd);
 
@@ -1102,6 +1116,17 @@ export async function TabbozWndProc(hWnd, message, wParam) {
 
         case WM_COMMAND:
             switch (LOWORD(wParam)) {
+                case QX_LOAD:
+                    await OpenFileDlg(hWnd);
+                    InvalidateRect(hWnd); // il tabbozzo caricato puo' essere vestito diversamente
+                    AggiornaPrincipale(hWnd);
+                    break;
+
+                case QX_SAVE:
+                    await SaveFileDlg(hWnd);
+                    AggiornaPrincipale(hWnd);
+                    break;
+
                 case QX_CLOSE:
                     await DialogBox(hInst, SPEGNIMI, hWnd, Spegnimi);
                     if (T.boolean_shutdown !== 0) EndDialog(hWnd, TRUE); // Chiudi la baracca...
@@ -1215,6 +1240,59 @@ export function vvc(i) {
     if (i < 0) return 0;
     if (i > 100) return 100;
     return i;
+}
+
+//*******************************************************************
+// Dialog x la scelta del file da aprire...
+//*******************************************************************
+
+const TBZ = { filter: '.tbz', description: 'Tabboz Files (*.tbz)' };
+
+export async function OpenFileDlg(hwnd) {
+    const file = await GetOpenFileName(TBZ);
+    if (!file) return;
+
+    const profilo = LeggiProfilo(DecodificaAnsi(file.bytes));
+    if (!profilo || !profilo.has('city')) {
+        // senza questo controllo CaricaTutto prenderebbe il file per un primo avvio e resetterebbe tutto
+        await MessageBox(hwnd, `${file.name}\n\nQuesto file non e' un salvataggio del Tabboz Simulator.`,
+            'Apri', MB_OK | MB_ICONSTOP);
+        return;
+    }
+
+    // Come in InitTabboz: senza questo, dopo un primo avvio firsttime resta a 1 e CaricaTutto
+    // azzera il tabbozzo invece di caricarlo (il bug c'era gia' nella 0.92).
+    T.firsttime = 0;
+    UsaProfilo(profilo);
+    try {
+        await CaricaTutto();
+    } finally {
+        UsaProfilo(null);
+    }
+    T.TabbozRedraw = 1;
+}
+
+//*******************************************************************
+// Dialog x la scelta del file da salvare...
+//*******************************************************************
+
+export async function SaveFileDlg(hwnd) {
+    const nome = `${T.Nome} ${T.Cognome}`.replace(/[\\/:*?"<>|]/g, '').trim() || 'Tabboz';
+    const file = await GetSaveFileName({ ...TBZ, suggestedName: `${nome}.tbz` });
+    if (!file) return;
+
+    const profilo = new Map();
+    UsaProfilo(profilo);
+    try {
+        SalvaTutto();
+    } finally {
+        UsaProfilo(null);
+    }
+    try {
+        await file.write(CodificaAnsi(ScriviProfilo(profilo)));
+    } catch {
+        await MessageBox(hwnd, `Impossibile salvare ${file.name}.`, 'Salva con nome', MB_OK | MB_ICONSTOP);
+    }
 }
 
 //*******************************************************************

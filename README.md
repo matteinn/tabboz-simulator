@@ -48,7 +48,11 @@ the call does nothing, as it would on Windows. Quirks of the original are kept o
 ## Differences from the Windows version
 
 - The game is saved in the browser's `localStorage` instead of the registry, after every
-  action and when the page closes. Clearing the site data starts a new tabbozzo.
+  action and when the page closes, and the page asks the browser to keep that storage.
+  Browsers can still wipe it (clearing site data, Safari after a week without visits), so
+  *File → Salva con nome...* writes the game to a `.tbz` file and *File → Apri...* loads it
+  back. The format is the one of the Windows version, an INI file with a `[Tabboz]`
+  section. The 0.9beta had no *File* menu: it is the one 0.92 added.
 - The page starts with a desktop icon to click, because browsers only play sound after a
   user gesture.
 - Minimizing the main window to the taskbar lets time pass, like the original's timer.
