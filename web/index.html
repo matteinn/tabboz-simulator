@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="it">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tabboz Simulator</title>
+    <meta name="description" content="Tabboz Simulator nel browser: il simulatore di zarro del 1997-2000 di Obscured Truckware.">
+    <link rel="icon" type="image/png" href="res/icons/1.png">
+    <link rel="stylesheet" href="css/tabboz.css">
+    <script type="module" src="js/main.js" onerror="document.getElementById('boot-hint').textContent = 'Impossibile caricare il Tabboz Simulator: ricarica la pagina.'"></script>
+</head>
+<body>
+    <main id="desktop" aria-label="Desktop">
+        <div id="boot" class="boot">
+            <div class="desktop-icons">
+                <button type="button" id="power" class="desktop-icon" disabled>
+                    <img src="res/icons/ZARROSIM.png" alt="">
+                    <span>Tabboz Simulator</span>
+                </button>
+                <button type="button" id="donate" class="desktop-icon" hidden>
+                    <img src="res/icons/ZTABACCHI.png" alt="">
+                    <span>Offrimi<br>un caff&egrave;</span>
+                </button>
+            </div>
+            <p id="boot-hint" class="boot-hint">Caricamento...</p>
+        </div>
+    </main>
+    <footer id="taskbar" class="taskbar" hidden>
+        <div id="tasks" class="tasks"></div>
+        <div class="tray">
+            <button type="button" id="tray-donate" class="tray-icon" title="Offrimi un caff&egrave;" hidden><img src="res/icons/ZTABACCHI.png" alt="Offrimi un caff&egrave;"></button>
+            <span id="clock"></span>
+        </div>
+    </footer>
+    <noscript>Tabboz Simulator ha bisogno di JavaScript.</noscript>
+</body>
+</html>

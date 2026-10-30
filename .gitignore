@@ -1,0 +1,10 @@
+# The original Windows release the resources were extracted from
+/tabboz090/
+
+# Local helper scripts and editor settings, not published
+/tools/
+/.claude/
+
+.venv/
+__pycache__/
+.DS_Store
